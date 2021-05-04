@@ -1,4 +1,4 @@
-##### ANALYSIS FACE-ATTRACTIVENESS #####
+############################################## ANALYSIS FACE-ATTRACTIVENESS #########################################################
 
 rm(list=ls())
 
@@ -88,7 +88,7 @@ datAoi$rev_time[datAoi$cond == 'response'] <- 0
 datAoi$rev_time <- datAoi$rev_time * -1
 
 
-################## DATA HAVE BEEN LAODED #############################
+################################# DATA HAVE BEEN LAODED ##############################################################################
 
 table(datAoi$aoi_left)
 table(datAoi$aoi_right)
@@ -112,7 +112,7 @@ data <- make_eyetrackingr_data(datAoi,
 
 sum(is.na(data$aoi_left)) / length(data$aoi_left) * 100
 
-########################## DATA CLEANING ################################
+################################# DATA CLEANING ####################################################################################
 
 #Remove participants with X variation in eye gaze estimation (may be varied)
 
@@ -232,7 +232,7 @@ plot(sequence_window_clean, predictor_column = 'target')
 
 
 
-#time sequence analyses
+#TIME SEQUENCE ANALYSES
 
 data_time_sequence <- make_time_sequence_data(data_window_clean,
                                               time_bin_size = .25,
@@ -254,7 +254,7 @@ tb_analysis <- analyze_time_bins(data = data_time_sequence,
 plot(tb_analysis, type = "estimate") + theme_light()
 summary(tb_analysis)
 
-#bootstrpped smoothed divergence analysis
+#BOOTSTRAPPED SMOOTHED DIVERGENCE ANALYSIS
 tb_boot <- analyze_time_bins(data = data_time_sequence, predictor_column = 'target',
                              test = 'boot_splines',
                              within_subj = TRUE,
@@ -266,7 +266,10 @@ plot(tb_boot) + theme_light()
 summary(tb_boot)
 
 
-#cluster analysis
+#CLUSTER ANALYSIS
+#had two advantages over the previous bootstrapping alternative as it does control for false-alarm rate while sacrificing
+#little sensitivity and allows for a larger variety of statistical tests (wilcox, lm, lmer, ...)
+
 
 num_sub <- length(unique((data_time_sequence$ID)))
 threshold_dat = qt(p = 1 - .05/2, df = num_sub-1) 

@@ -14,14 +14,134 @@ longData <- rbindlist(yPilot)
 longData <- longData[-(1:22),]
 
 longData <- longData[!is.na(longData$gaze_x)]
-longData$Trial <- 1:nrow(longData)
+
+# add future selection to each individual trial
+
+longData$selection_trial <- 0
+selection_rev <- rev(longData$selection)
+rev_selection <- na.locf(selection_rev)
+longData$selection_trial <- rev(rev_selection)
+
+table(longData$selection == longData$selection_trial)
+
+var_label(longData$selection_trial) <- "selected face on trial"
+
+###################################### DATA CLEANING ###############################################################################
+
+#Remove participants with X variation in eye gaze estimation (may be varied)
+
+uniqueID_long <- unique(longData$ID)
+
+clean_ind <- character()
+for (k in 1:length(uniqueID_long)){
+  cleaning <- subset(longData, longData$ID == uniqueID_long[k])
+  par_sd <- sd(cleaning$gaze_x, na.rm = TRUE)
+  
+  if(par_sd == 0){
+    #change value based on how much variation is set as minimum criterion
+    print(uniqueID_long[k])
+    clean_ind <- c(clean_ind, as.character(uniqueID_long[k]))
+  }
+}
+
+longData <- longData[!longData$ID %in% clean_ind,]
+
+
+
+#calculate participant loss percentage 
+length(unique(longData$ID))/length(uniqueID_long)
+
+#Remove participants who always select the same response
+
+uniqueID_long <- unique(longData$ID)
+noResVar <- character()
+
+for(i in 1:length(uniqueID_long)){
+  ind <- uniqueID_long[i]
+  ind <- as.character(ind)
+  uniqueResPar <- unique(longData$selection_trial[longData$ID == ind])
+  
+  if(length(uniqueResPar) < 2){
+    noResVar <- as.character(c(noResVar, ind))
+  }
+}
+
+longData <- longData[!longData$ID %in% noResVar, ]
+
+length(unique(longData$ID))/length(uniqueID_long)
+
+#Remove trials with extremely large response times (60 seconds)
+uniqueID_long <- unique(longData$ID)
+max(longData$trial_time)
+
+for(z in 1:length(uniqueID)){
+  subPar <- subset(longData, longData$ID == uniqueID_long[z])
+  a <- unique(subPar$pair[which(subPar$trial_time > 60)])
+  longData <- longData[!(longData$ID == uniqueID_long[z] & longData$pair %in% a),]
+}
+
+data[data$trial_time > 60,]
+
+#Remove trials with extremely low response times (<.5 seconds)
+
+min(longData$trial_time[longData$cond == 'response'])
+median(longData$trial_time[longData$cond == 'response'])
+mean(longData$trial_time[longData$cond == 'response'])
+sd(longData$trial_time[longData$cond == 'response'])
+
+
+for(d in 1:length(uniqueID_long)){
+  subPar <- subset(longData, longData$ID == uniqueID_long[d])
+  b <- unique(subPar$pair[which(subPar$trial_time[subPar$cond == 'response'] < .5)])
+  longData <- longData[!(longData$ID == uniqueID_long[z] & longData$pair %in% b),]
+}
+
+which(longData$trial_time[longData$cond == 'response'] < .5)
+
+################################## FLEXIBLE MIDLINE EXCLUSION AND ADJUSTMENT #######################################################
+#participants whose midline area exceeds 33% of the screen are excluded
+#participants whose center varies more than 25% from the center are excluded
+
+longData$var_midline <- NA
+longData$mid_33 <- longData$res_x/3
+
+for(ff in 1:length(uniqueID_long)){
+  for(gg in 1:length(unique(longData$pair))){
+    longData$var_midline[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- median(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])
+    longData$var_midline_sd[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- sd(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])
+  }
+}
+
+#exclude trials where the area around the midline is more than a third of the screen size
+
+longData$exclude <- longData$var_midline_sd*2 >= longData$mid_33
+table(longData$exclude)
+
+longData <- longData[longData$exclude == FALSE]
+table(longData$exclude)
+
+#exclude trials where midline is more than
+
+longData$mid_offset <- longData$var_midline - longData$mid_x
+longData$exclude <- ifelse(longData$res_x*.25 <= longData$mid_offset, TRUE, FALSE)
+
+table(longData$exclude)
+
+longData <- longData[longData$exclude == FALSE]
+
+
+########################################### ADD AOIS #############################################################################
+# add important variables
+
 longData$aoi <- FALSE
-longData$aoi_left <- logical()
-longData$aoi_right <- logical()
+longData$aoi_left <- NA
+longData$aoi_right <- NA
 
 uniquePair <- unique(longData$pair)
 uniqueID <- unique(longData$ID)
+longData$Trial <- 1:nrow(longData)
 uniqueIDL <- longData$Trial
+
 uniqueLeftL <- rep(0, nrow(longData))
 uniqueMidL <- longData$mid_x -1 # -1 indicates a margin in the middle that is considered neither right or left
 uniqueMidR <- longData$mid_x +1 # +1 indicates a margin in the middle that is considered neither right or left
@@ -29,14 +149,27 @@ uniqueBottomL <- rep(0, nrow(longData))
 uniqueTopL <- longData$res_y
 uniqueRightL <- longData$res_x
 
+responsiveMidX <- longData$var_midline - longData$var_midline_sd
+responsiveMidY <- longData$var_midline + longData$var_midline_sd
+responsiveLeft <- rep(0, nrow(longData)) + longData$mid_offset
+responsiveRight <- longData$res_x + longData$mid_offset
+
 
 aoiLeft <- data.frame(Trial = uniqueIDL, 
-                      Left = uniqueLeftL, Right = uniqueMidL,
+                      Left = responsiveLeft, Right = responsiveMidX,
                       Top = uniqueTopL, Bottom = uniqueBottomL)
 
 aoiRight <- data.frame(Trial = uniqueIDL,
-                       Left = uniqueMidR, Right = uniqueRightL,
+                       Left = responsiveMidY, Right = responsiveRight,
                        Top = uniqueTopL, Bottom = uniqueBottomL)
+
+#aoiLeft <- data.frame(Trial = uniqueIDL, 
+#                     Left = uniqueLeftL, Right = uniqueMidL,
+#                     Top = uniqueTopL, Bottom = uniqueBottomL)
+
+#aoiRight <- data.frame(Trial = uniqueIDL,
+#                      Left = uniqueMidR, Right = uniqueRightL,
+#                      Top = uniqueTopL, Bottom = uniqueBottomL)
 
 datAoi <- add_aoi(data = longData, aoi_dataframe = aoiLeft,
                   x_col = "gaze_x", y_col = "gaze_y",
@@ -51,17 +184,6 @@ datAoi <- add_aoi(data = datAoi, aoi_dataframe = aoiRight,
                   y_min_col = "Bottom", y_max_col = "Top")
 
 datAoi$trackloss <- FALSE
-
-# add future selection to each individual trial
-
-datAoi$selection_trial <- 0
-selection_rev <- rev(datAoi$selection)
-rev_selection <- na.locf(selection_rev)
-datAoi$selection_trial <- rev(rev_selection)
-
-table(datAoi$selection == datAoi$selection_trial)
-
-var_label(datAoi$selection_trial) <- "selected face on trial"
 
 # reorder
 
@@ -92,8 +214,9 @@ datAoi$rev_time <- datAoi$rev_time * -1
 
 table(datAoi$aoi_left)
 table(datAoi$aoi_right)
+sum(datAoi$aoi_left == FALSE & datAoi$aoi_right == FALSE) #should be equivalent to trackloss data after following function
 
-length(is.na(datAoi$aoi_left))
+sum(is.na(datAoi$aoi_left))
 
 data <- make_eyetrackingr_data(datAoi, 
                                participant_column = "ID",
@@ -105,6 +228,8 @@ data <- make_eyetrackingr_data(datAoi,
                                treat_non_aoi_looks_as_missing = TRUE
 )
 
+nrow(data[data$trackloss == TRUE,])
+
 # data that fall outside of the AOIs will be coded as NA, to do otherwise (code them as FALSE, FALSE) change the 
 # 'treat_non_aoi_looks_as_missing' argument to FALSE
 
@@ -113,75 +238,6 @@ data <- make_eyetrackingr_data(datAoi,
 sum(is.na(data$aoi_left)) / length(data$aoi_left) * 100
 
 ################################# DATA CLEANING ####################################################################################
-
-#Remove participants with X variation in eye gaze estimation (may be varied)
-
-uniqueID <- unique(data$ID)
-
-clean_ind <- character()
-for (k in 1:length(uniqueID)){
-  cleaning <- subset(data, data$ID == uniqueID[k])
-  par_sd <- sd(cleaning$gaze_x, na.rm = TRUE)
-  
-  if(par_sd == 0){
-    #change value based on how much variation is set as minimum criterion
-    print(uniqueID[k])
-    clean_ind <- c(clean_ind, as.character(uniqueID[k]))
-  }
-}
-
-data <- data[!data$ID %in% clean_ind,]
-
-s <- subset(data, data$ID == "606cb1be8140236b8b888cb0")
-
-#calculate participant loss percentage 
-length(unique(data$ID))/length(uniqueID)
-
-#Remove participants who always select the same response
-
-
-noResVar <- character()
-
-for(i in 1:length(uniqueID)){
-  ind <- uniqueID[i]
-  ind <- as.character(ind)
-  uniqueResPar <- unique(data$selection_trial[data$ID == ind])
-  
-  if(length(uniqueResPar) < 2){
-    noResVar <- as.character(c(noResVar, ind))
-  }
-}
-
-data <- data[!data$ID %in% noResVar, ]
-
-#Remove trials with extremely large response times (60 seconds)
-
-max(data$trial_time)
-
-for(z in 1:length(uniqueID)){
-  subPar <- subset(data, data$ID == uniqueID[z])
-  a <- unique(subPar$pair[which(subPar$trial_time > 60)])
-  data <- data[!(data$ID == uniqueID[z] & data$pair %in% a),]
-}
-
-data[data$trial_time > 60,]
-
-
-#Remove trials with extremely low response times (<.5 seconds)
-
-min(data$trial_time[data$cond == 'response'])
-median(data$trial_time[data$cond == 'response'])
-mean(data$trial_time[data$cond == 'response'])
-sd(data$trial_time[data$cond == 'response'])
-
-
-for(d in 1:length(uniqueID)){
-  subPar <- subset(data, data$ID == uniqueID[d])
-  b <- unique(subPar$pair[which(subPar$trial_time[subPar$cond == 'response'] < .5)])
-  data <- data[!(data$ID == uniqueID[z] & data$pair %in% b),]
-}
-
-which(data$trial_time[data$cond == 'response'] < .5)
 
 ################################# TRACKLOSS ANALYSIS ###############################################################################
 #participants with trackloss >.5 are excluded entirely
@@ -248,8 +304,6 @@ describe_data(data_window_agg, describe_column = 'ArcSin', group_columns = 'targ
 
 t.test(ArcSin ~ target, data = data_window_agg, paired = TRUE) #simpled paired t-test between total looking times
 
-
-
 response_window_agg <- make_time_window_data(data_window_clean, 
                                          aois = c('aoi_left','aoi_right'),
                                          predictor_columns = c('target','webcam','glasses'))
@@ -257,12 +311,8 @@ response_window_agg <- make_time_window_data(data_window_clean,
 response_window_agg$targetC <- ifelse(response_window_agg$target == 'right', .5, -.5)
 response_window_agg$targetC <- as.numeric(scale(response_window_agg$targetC, center = TRUE, scale = FALSE))
 
-
 model_time_window <- lmer(Elog ~ targetC + (1 + targetC | Trial) + (1 | ID), 
                           data = response_window_agg, REML = FALSE)
-
-
-
 
 ######################################## TIME SEQUENCE ANALYSES ###################################################################
 
@@ -274,7 +324,7 @@ data_time_sequence <- make_time_sequence_data(data_window_clean,
 
 plot(data_time_sequence, predictor_column = 'target') + 
   theme_light() +
-  coord_cartesian(ylim = c(0.35,0.65))
+  coord_cartesian(ylim = c(0.2,0.8))
 
 tb_analysis <- analyze_time_bins(data = data_time_sequence,
                                  predictor_column = 'target',

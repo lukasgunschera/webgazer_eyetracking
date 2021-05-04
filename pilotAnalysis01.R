@@ -50,7 +50,7 @@ datAoi <- add_aoi(data = datAoi, aoi_dataframe = aoiRight,
                   x_min_col = "Left", x_max_col = "Right",
                   y_min_col = "Bottom", y_max_col = "Top")
 
-datAoi$trackloss <- logical()
+datAoi$trackloss <- FALSE
 
 # add future selection to each individual trial
 
@@ -125,12 +125,14 @@ for (k in 1:length(uniqueID)){
   
   if(par_sd == 0){
     #change value based on how much variation is set as minimum criterion
-    
+    print(uniqueID[k])
     clean_ind <- c(clean_ind, as.character(uniqueID[k]))
   }
 }
 
 data <- data[!data$ID %in% clean_ind,]
+
+s <- subset(data, data$ID == "606cb1be8140236b8b888cb0")
 
 #calculate participant loss percentage 
 length(unique(data$ID))/length(uniqueID)
@@ -184,6 +186,8 @@ which(data$trial_time[data$cond == 'response'] < .5)
 ################################# TRACKLOSS ANALYSIS ###############################################################################
 #participants with trackloss >.5 are excluded entirely
 
+test <- subset(data, data$trackloss == TRUE)
+
 data_window <- subset_by_window(data, window_start_time = -2.7, window_end_time = 0, rezero = FALSE, remove = TRUE)
 trackloss <- trackloss_analysis(data = data_window)
 
@@ -230,9 +234,37 @@ sequence_window_clean <- make_time_sequence_data(data_window_clean,
 
 plot(sequence_window_clean, predictor_column = 'target')
 
+#WINDOW ANALYIS BASIC
+
+data_window_agg <- make_time_window_data(data_window_clean, 
+                                                    aois = c('aoi_left','aoi_right'),
+                                                    predictor_columns = c('target'),
+                                                    summarize_by = "ID")
+
+plot(data_window_agg, predictor_columns = 'target', dv = 'ArcSin')
+describe_data(data_window_agg, describe_column = 'ArcSin', group_columns = 'target') #show condition means
+
+#Looking time comparisons
+
+t.test(ArcSin ~ target, data = data_window_agg, paired = TRUE) #simpled paired t-test between total looking times
 
 
-#TIME SEQUENCE ANALYSES
+
+response_window_agg <- make_time_window_data(data_window_clean, 
+                                         aois = c('aoi_left','aoi_right'),
+                                         predictor_columns = c('target','webcam','glasses'))
+
+response_window_agg$targetC <- ifelse(response_window_agg$target == 'right', .5, -.5)
+response_window_agg$targetC <- as.numeric(scale(response_window_agg$targetC, center = TRUE, scale = FALSE))
+
+
+model_time_window <- lmer(Elog ~ targetC + (1 + targetC | Trial) + (1 | ID), 
+                          data = response_window_agg, REML = FALSE)
+
+
+
+
+######################################## TIME SEQUENCE ANALYSES ###################################################################
 
 data_time_sequence <- make_time_sequence_data(data_window_clean,
                                               time_bin_size = .25,
@@ -288,3 +320,11 @@ clust_analysis <- analyze_time_clusters(data_time_cluster, within_subj = TRUE, p
 
 plot(clust_analysis) + theme_light()
 summary(clust_analysis)
+
+
+
+
+
+
+
+

@@ -181,85 +181,107 @@ for(d in 1:length(uniqueID)){
 
 which(data$trial_time[data$cond == 'response'] < .5)
 
+################################# TRACKLOSS ANALYSIS ###############################################################################
+#participants with trackloss >.5 are excluded entirely
 
-# TRACKLOSS ANALYSIS
+data_window <- subset_by_window(data, window_start_time = -2.7, window_end_time = 0, rezero = FALSE, remove = TRUE)
+trackloss <- trackloss_analysis(data = data_window)
 
-data_clean <- clean_by_trackloss(data,
+data_window_clean <- clean_by_trackloss(data_window,
                                  participant_prop_thresh = 0.5,
-                                 window_start_time = Inf,
+                                 window_start_time = -Inf,
                                  window_end_time = 0)
 
-droplevels(data_clean$ID)
+droplevels(data_window_clean$ID)
 
+data_window_clean$target <- as.factor(ifelse(test = grepl('left', data_window_clean$selection_trial),
+                                             yes = 'left',
+                                             no = 'right'))
 
-################################ INSPECT DATA #####################################
+################################# INSPECT DATA #####################################################################################
 
-describe_data <- describe_data(data_clean, 'aoi_left', 'ID')
-plot(describe_data)
+trackloss_data_window_clean <- trackloss_analysis(data = data_window_clean)
+trackloss_data_window_participant <- unique(trackloss_data_window_clean[, c('ID','TracklossForParticipant')])
 
+dat_summary_left <- describe_data(data_window_clean,
+              describe_column = 'aoi_left',
+              group_columns = c('target','ID'))
 
+plot(dat_summary_left)
 
-### Create data subsets
+#summarize samples contributed per trial
 
-data_window <- subset_by_window(data_clean, window_start_time = -2.7, window_end_time = 0, rezero = FALSE, remove = TRUE)
-data_time_window <- make_time_window_data(data_clean, aois = c('aoi_left','aoi_right'), predictor_columns = 'selection_trial', summarize_by = 'ID')
-data_time_sequence <- make_time_sequence_data(data_window, time_bin_size = .1, aois = c('aoi_left'), predictor_columns = 'selection_trial', summarize_by = 'ID')
+mean(1-trackloss_data_window_participant$TracklossForParticipant)
+sd(trackloss_data_window_participant$TracklossForParticipant)
 
-####################### ANALYSES ############################
+#summarize number of trials contributed by each participant
 
+summary <- describe_data(data_window_clean, 'aoi_left', 'ID')
+mean(summary$NumTrials)
+sd(summary$NumTrials)
 
-### TIME SEQUENCE ###
-# input are 'make.time.sequence.data' and 'subset.by.window'
+################################# ANALYSES ############################################################################################
+#window proportion viewing times
 
-time_analysis <- analyze_time_bins(data_time_sequence,
-                                   treatment_level = "right",
-                                   predictor_column = 'selection_trial',
-                                   alpha = .05, test = "lm",
-                                   aoi = c("aoi_right")
-)
+sequence_window_clean <- make_time_sequence_data(data_window_clean,
+                                                 time_bin_size = .25,
+                                                 predictor_columns = 'target',
+                                                 aois = c('aoi_left','aoi_right'))
 
-plot(data_time_sequence, predictor_column = c('selection_trial'))
-
-
-### CLUSTER ###
-
-print(data_time_cluster)
-plot(data_time_window, predictor_columns = 'selection_trial', dv = "Prop")
-
-
-### BOOTSPLINES ###
-
-make_boot_splines_data(data_time_sequence, 
-                       predictor_column = 'selection_trial',
-                       within_subj = FALSE,
-                       aoi = "aoi_right",
-                       bs_samples = 500,
-                       alpha = .05,
-                       smoother = "smooth.spline"
-)
-
-
-### Example
-
-data_window$target <- as.factor(ifelse(test = grepl('(left|right)', data_window$selection_trial),
-                                       yes = 'left',
-                                       no = 'right'
-))
-
-word_time <- make_time_sequence_data(data_window, time_bin_size = .25, 
-                                     predictor_columns = 'target', aois = c('aoi_right','aoi_left'))
-
-plot(word_time, predictor_column = 'target')
-
-
-word_time$targetC <- ifelse(word_time$target == 'right', .5, -.5)
-word_time$targetC <- word_time$targetC - mean(word_time$targetC)
-
-library(lme4)
-model <- lmer(Elog ~ targetC*(ot1 + ot2 + ot3 + ot4 + ot5) + (1 | Trial) + (1 | ID), data = word_time, REML = FALSE)
-broom::tidy(model, effects="fixed")
-drop1(model,~.,test="Chi")
+plot(sequence_window_clean, predictor_column = 'target')
 
 
 
+#time sequence analyses
 
+data_time_sequence <- make_time_sequence_data(data_window_clean,
+                                              time_bin_size = .25,
+                                              predictor_columns = c('target'),
+                                              aois = c('aoi_left','aoi_right'),
+                                              summarize_by = 'ID')
+
+plot(data_time_sequence, predictor_column = 'target') + 
+  theme_light() +
+  coord_cartesian(ylim = c(0.35,0.65))
+
+tb_analysis <- analyze_time_bins(data = data_time_sequence,
+                                 predictor_column = 'target',
+                                 p_adjust_method = 'holm',
+                                 aoi = 'aoi_left',
+                                 test = 't.test',
+                                 alpha = .05)
+
+plot(tb_analysis, type = "estimate") + theme_light()
+summary(tb_analysis)
+
+#bootstrpped smoothed divergence analysis
+tb_boot <- analyze_time_bins(data = data_time_sequence, predictor_column = 'target',
+                             test = 'boot_splines',
+                             within_subj = TRUE,
+                             bs_samples = 1000,
+                             aoi = 'aoi_left',
+                             alpha = .05)
+
+plot(tb_boot) + theme_light()
+summary(tb_boot)
+
+
+#cluster analysis
+
+num_sub <- length(unique((data_time_sequence$ID)))
+threshold_dat = qt(p = 1 - .05/2, df = num_sub-1) 
+
+data_time_cluster <- make_time_cluster_data(data_time_sequence, test = 't.test', paired = TRUE,
+                                            aoi = 'aoi_left',
+                                            predictor_column = 'target', threshold = threshold_dat)
+
+plot(data_time_cluster) +  ylab("T-Statistic") + theme_light()
+summary(data_time_cluster)
+
+#bootstrap null distribution of clusters
+
+clust_analysis <- analyze_time_clusters(data_time_cluster, within_subj = TRUE, paired = TRUE,
+                                        samples=500)
+
+plot(clust_analysis) + theme_light()
+summary(clust_analysis)

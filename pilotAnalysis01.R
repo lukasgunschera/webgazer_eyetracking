@@ -1,6 +1,7 @@
 ############################################## ANALYSIS FACE-ATTRACTIVENESS #########################################################
 
 rm(list=ls())
+dev.off()
 
 library(dplyr); library(eyetrackingR); library(tidyr); library(labelled); library(ggplot2); library(stringr);
 library(data.table); library(Matrix); library(lme4); library(ggplot2); library(zoo)
@@ -74,13 +75,13 @@ length(unique(longData$ID))/length(uniqueID_long)
 uniqueID_long <- unique(longData$ID)
 max(longData$trial_time)
 
-for(z in 1:length(uniqueID)){
+for(z in 1:length(uniqueID_long)){
   subPar <- subset(longData, longData$ID == uniqueID_long[z])
   a <- unique(subPar$pair[which(subPar$trial_time > 30)])
   longData <- longData[!(longData$ID == uniqueID_long[z] & longData$pair %in% a),]
 }
 
-data[data$trial_time > 30,]
+longData[longData$trial_time > 30,]
 
 #Remove trials with extremely low response times (<.5 seconds)
 
@@ -103,7 +104,7 @@ which(longData$trial_time[longData$cond == 'response'] < .5)
 #participants whose center varies more than 25% from the center are excluded
 
 longData$var_midline <- NA
-longData$mid_33 <- longData$res_x/6
+longData$mid_33 <- longData$res_x/3
 
 for(ff in 1:length(uniqueID_long)){
   for(gg in 1:length(unique(longData$pair))){
@@ -149,8 +150,8 @@ uniqueBottomL <- rep(0, nrow(longData))
 uniqueTopL <- longData$res_y
 uniqueRightL <- longData$res_x
 
-responsiveMidX <- longData$var_midline - 1/2*longData$var_midline_sd
-responsiveMidY <- longData$var_midline + 1/2*longData$var_midline_sd
+responsiveMidX <- longData$var_midline #- 1/2*longData$var_midline_sd
+responsiveMidY <- longData$var_midline #+ 1/2*longData$var_midline_sd
 responsiveLeft <- rep(0, nrow(longData)) + longData$mid_offset
 responsiveRight <- longData$res_x + longData$mid_offset
 
@@ -228,21 +229,17 @@ data <- make_eyetrackingr_data(datAoi,
                                treat_non_aoi_looks_as_missing = TRUE
 )
 
-nrow(data[data$trackloss == TRUE,])
-
 # data that fall outside of the AOIs will be coded as NA, to do otherwise (code them as FALSE, FALSE) change the 
 # 'treat_non_aoi_looks_as_missing' argument to FALSE
 
 # compute proportion of data falling outside of AOIs 
 
-sum(is.na(data$aoi_left)) / length(data$aoi_left) * 100
+nrow(data[data$trackloss == TRUE,])/nrow(data)
 
 ################################# DATA CLEANING ####################################################################################
 
 ################################# TRACKLOSS ANALYSIS ###############################################################################
 #participants with trackloss >.5 are excluded entirely
-
-test <- subset(data, data$trackloss == TRUE)
 
 data_window <- subset_by_window(data, window_start_time = -2.7, window_end_time = 0, rezero = FALSE, remove = TRUE)
 trackloss <- trackloss_analysis(data = data_window)
@@ -262,6 +259,9 @@ data_window_clean$target <- as.factor(ifelse(test = grepl('left', data_window_cl
 
 trackloss_data_window_clean <- trackloss_analysis(data = data_window_clean)
 trackloss_data_window_participant <- unique(trackloss_data_window_clean[, c('ID','TracklossForParticipant')])
+
+mean_trackloss <- mean(trackloss_data_window_participant$TracklossForParticipant)
+trackloss_data_window_participant
 
 dat_summary_left <- describe_data(data_window_clean,
               describe_column = 'aoi_left',

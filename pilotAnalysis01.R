@@ -76,11 +76,11 @@ max(longData$trial_time)
 
 for(z in 1:length(uniqueID)){
   subPar <- subset(longData, longData$ID == uniqueID_long[z])
-  a <- unique(subPar$pair[which(subPar$trial_time > 60)])
+  a <- unique(subPar$pair[which(subPar$trial_time > 30)])
   longData <- longData[!(longData$ID == uniqueID_long[z] & longData$pair %in% a),]
 }
 
-data[data$trial_time > 60,]
+data[data$trial_time > 30,]
 
 #Remove trials with extremely low response times (<.5 seconds)
 
@@ -103,7 +103,7 @@ which(longData$trial_time[longData$cond == 'response'] < .5)
 #participants whose center varies more than 25% from the center are excluded
 
 longData$var_midline <- NA
-longData$mid_33 <- longData$res_x/3
+longData$mid_33 <- longData$res_x/6
 
 for(ff in 1:length(uniqueID_long)){
   for(gg in 1:length(unique(longData$pair))){
@@ -114,7 +114,7 @@ for(ff in 1:length(uniqueID_long)){
 
 #exclude trials where the area around the midline is more than a third of the screen size
 
-longData$exclude <- longData$var_midline_sd*2 >= longData$mid_33
+longData$exclude <- longData$var_midline_sd >= longData$mid_33
 table(longData$exclude)
 
 longData <- longData[longData$exclude == FALSE]
@@ -149,8 +149,8 @@ uniqueBottomL <- rep(0, nrow(longData))
 uniqueTopL <- longData$res_y
 uniqueRightL <- longData$res_x
 
-responsiveMidX <- longData$var_midline - longData$var_midline_sd
-responsiveMidY <- longData$var_midline + longData$var_midline_sd
+responsiveMidX <- longData$var_midline - 1/2*longData$var_midline_sd
+responsiveMidY <- longData$var_midline + 1/2*longData$var_midline_sd
 responsiveLeft <- rep(0, nrow(longData)) + longData$mid_offset
 responsiveRight <- longData$res_x + longData$mid_offset
 
@@ -340,7 +340,7 @@ summary(tb_analysis)
 tb_boot <- analyze_time_bins(data = data_time_sequence, predictor_column = 'target',
                              test = 'boot_splines',
                              within_subj = TRUE,
-                             bs_samples = 1000,
+                             bs_samples = 10000,
                              aoi = 'aoi_left',
                              alpha = .05)
 

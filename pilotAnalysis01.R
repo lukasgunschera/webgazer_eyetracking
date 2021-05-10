@@ -268,7 +268,6 @@ dat_summary_left <- describe_data(data_window_clean,
               group_columns = c('target','ID'))
 
 plot(dat_summary_left)
-
 #summarize samples contributed per trial
 
 mean(1-trackloss_data_window_participant$TracklossForParticipant)

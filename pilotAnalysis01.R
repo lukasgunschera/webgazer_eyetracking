@@ -234,7 +234,7 @@ data <- make_eyetrackingr_data(datAoi,
 
 # compute proportion of data falling outside of AOIs 
 
-nrow(data[data$trackloss == TRUE,])/nrow(data)
+completeAOI <- nrow(data[data$trackloss == TRUE,])/nrow(data)
 
 ################################# DATA CLEANING ####################################################################################
 
@@ -370,10 +370,19 @@ clust_analysis <- analyze_time_clusters(data_time_cluster, within_subj = TRUE, p
 plot(clust_analysis) + theme_light()
 summary(clust_analysis)
 
+# plotted viewing times for each participant
+uniqueID <- unique(data_window_clean$ID)
 
+seq_dat <- list()
 
+for(oo in 1:length(uniqueID)){
+  currentID <- uniqueID[oo]
+seq_dat[[oo]] <- make_time_sequence_data(data_window_clean[data_window_clean$ID == currentID,],
+                                                 time_bin_size = .25,
+                                                 predictor_columns = 'target',
+                                                 aois = c('aoi_left','aoi_right'))
+}
 
-
-
+plot(seq_dat[[17]], predictor_column = 'target')
 
 

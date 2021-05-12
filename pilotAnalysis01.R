@@ -4,7 +4,7 @@ rm(list=ls())
 dev.off()
 
 library(dplyr); library(eyetrackingR); library(tidyr); library(labelled); library(ggplot2); library(stringr);
-library(data.table); library(Matrix); library(lme4); library(ggplot2); library(zoo)
+library(data.table); library(Matrix); library(lme4); library(ggplot2); library(zoo); library(sur)
 
 # Load Data for eyetrackingR
 
@@ -71,7 +71,7 @@ longData <- longData[!longData$ID %in% noResVar, ]
 
 length(unique(longData$ID))/length(uniqueID_long)
 
-#Remove trials with extremely large response times (60 seconds)
+#Remove trials with extremely large response times (30 seconds)
 uniqueID_long <- unique(longData$ID)
 max(longData$trial_time)
 
@@ -100,34 +100,30 @@ for(d in 1:length(uniqueID_long)){
 which(longData$trial_time[longData$cond == 'response'] < .5)
 
 ################################## FLEXIBLE MIDLINE EXCLUSION AND ADJUSTMENT #######################################################
-#participants whose midline area exceeds 33% of the screen are excluded
-#participants whose center varies more than 25% from the center are excluded
+#trials further than 1/4 of the screen width away from the midline are excluded 
+#trials with midline deadzones exceeding 1/2 of the screen are excluded
 
 longData$var_midline <- NA
-longData$mid_33 <- longData$res_x/3
+longData$mid_4 <- longData$res_x/4
+
+#variable midline based on preceeding fixations (tailing 90% to exclude early fluctuations)
 
 for(ff in 1:length(uniqueID_long)){
   for(gg in 1:length(unique(longData$pair))){
-    longData$var_midline[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- median(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])
-    longData$var_midline_sd[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- sd(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])
+    longData$var_midline[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- median(tail(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation']),round(.9*length(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])))
+    longData$var_midline_sd[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- sd(tail(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation']),round(.9*length(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])))
   }
 }
 
-#exclude trials where the area around the midline is more than a third of the screen size
-
-longData$exclude <- longData$var_midline_sd >= longData$mid_33
-table(longData$exclude)
-
+#trial exclusion large midline area
+longData$mid_offset <- abs(longData$var_midline - longData$mid_x)
+longData$exclude <- longData$var_midline_sd >= longData$mid_4
+excl_midarea <- percent.table(longData$exclude)
 longData <- longData[longData$exclude == FALSE]
-table(longData$exclude)
 
-#exclude trials where midline is more than
-
-longData$mid_offset <- longData$var_midline - longData$mid_x
+#trial exclusion large midline deviation
 longData$exclude <- ifelse(longData$res_x*.25 <= longData$mid_offset, TRUE, FALSE)
-
-table(longData$exclude)
-
+excl_middistance <- percent.table(longData$exclude)
 longData <- longData[longData$exclude == FALSE]
 
 
@@ -143,15 +139,17 @@ uniqueID <- unique(longData$ID)
 longData$Trial <- 1:nrow(longData)
 uniqueIDL <- longData$Trial
 
-uniqueLeftL <- rep(0, nrow(longData))
-uniqueMidL <- longData$mid_x -1 # -1 indicates a margin in the middle that is considered neither right or left
-uniqueMidR <- longData$mid_x +1 # +1 indicates a margin in the middle that is considered neither right or left
+
+#unique bounds if fixed AOIs are desired
 uniqueBottomL <- rep(0, nrow(longData))
 uniqueTopL <- longData$res_y
-uniqueRightL <- longData$res_x
+#uniqueLeftL <- rep(0, nrow(longData))
+#uniqueMidL <- longData$mid_x -1 # -1 indicates a margin in the middle that is considered neither right or left
+#uniqueMidR <- longData$mid_x +1 # +1 indicates a margin in the middle that is considered neither right or left
+#uniqueRightL <- longData$res_x
 
-responsiveMidX <- longData$var_midline #- 1/2*longData$var_midline_sd
-responsiveMidY <- longData$var_midline #+ 1/2*longData$var_midline_sd
+responsiveMidX <- longData$var_midline - 1/4*longData$var_midline_sd
+responsiveMidY <- longData$var_midline + 1/4*longData$var_midline_sd
 responsiveLeft <- rep(0, nrow(longData)) + longData$mid_offset
 responsiveRight <- longData$res_x + longData$mid_offset
 
@@ -187,9 +185,7 @@ datAoi <- add_aoi(data = datAoi, aoi_dataframe = aoiRight,
 datAoi$trackloss <- FALSE
 
 # reorder
-
 names(datAoi)
-
 datAoi <- subset(datAoi, select = c("ID","qual_id","trials_ran","completion","consent","webcam","webcam_type",
                                     "glasses","browser","cal_x","cal_y","cal_number","mouse_x","mouse_y",
                                     "cal_off_x","cal_off_y","framerate","res","res_x","res_y",
@@ -198,7 +194,6 @@ datAoi <- subset(datAoi, select = c("ID","qual_id","trials_ran","completion","co
                                     "selection","selection_trial","trackloss"))
 
 ### create reverse time vector and set response time to 0
-
 datAoi$rev_time <- NA
 
 for(dd in 1:length(uniqueID)){
@@ -212,7 +207,6 @@ datAoi$rev_time <- datAoi$rev_time * -1
 
 
 ################################# DATA HAVE BEEN LAODED ##############################################################################
-
 table(datAoi$aoi_left)
 table(datAoi$aoi_right)
 sum(datAoi$aoi_left == FALSE & datAoi$aoi_right == FALSE) #should be equivalent to trackloss data after following function
@@ -229,18 +223,18 @@ data <- make_eyetrackingr_data(datAoi,
                                treat_non_aoi_looks_as_missing = TRUE
 )
 
+data <- data %>% filter(cond == 'begin image display' | cond == 'image display' | cond == 'response')
+
 # data that fall outside of the AOIs will be coded as NA, to do otherwise (code them as FALSE, FALSE) change the 
-# 'treat_non_aoi_looks_as_missing' argument to FALSE
+#'treat_non_aoi_looks_as_missing' argument to FALSE
 
 # compute proportion of data falling outside of AOIs 
-
 completeAOI <- nrow(data[data$trackloss == TRUE,])/nrow(data)
 
 ################################# DATA CLEANING ####################################################################################
 
 ################################# TRACKLOSS ANALYSIS ###############################################################################
 #participants with trackloss >.5 are excluded entirely
-
 data_window <- subset_by_window(data, window_start_time = -2.7, window_end_time = 0, rezero = FALSE, remove = TRUE)
 trackloss <- trackloss_analysis(data = data_window)
 
@@ -281,7 +275,6 @@ sd(summary$NumTrials)
 
 ################################# ANALYSES ############################################################################################
 #window proportion viewing times
-
 sequence_window_clean <- make_time_sequence_data(data_window_clean,
                                                  time_bin_size = .25,
                                                  predictor_columns = 'target',
@@ -290,7 +283,6 @@ sequence_window_clean <- make_time_sequence_data(data_window_clean,
 plot(sequence_window_clean, predictor_column = 'target')
 
 #WINDOW ANALYIS BASIC
-
 data_window_agg <- make_time_window_data(data_window_clean, 
                                                     aois = c('aoi_left','aoi_right'),
                                                     predictor_columns = c('target'),
@@ -384,5 +376,3 @@ seq_dat[[oo]] <- make_time_sequence_data(data_window_clean[data_window_clean$ID 
 }
 
 plot(seq_dat[[17]], predictor_column = 'target')
-
-

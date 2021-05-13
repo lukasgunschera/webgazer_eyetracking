@@ -19,12 +19,11 @@ qualitrics01 <- qualitrics01[ ,-c(1:4,7,9:19)]
 
 # LOAD DATAFILES PROLIFIC
 
-setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Data/Pavlovia/Pilot02')
-allPav <-  list.files(path = '/Users/lukasgunschera/Documents/UvA/Intern/pilot/Data/Pavlovia/Pilot02',
-                      pattern = "07.csv",
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Data/Pavlovia/pilotData')
+allPav <-  list.files(path = '/Users/lukasgunschera/Documents/UvA/Intern/pilot/Data/Pavlovia/pilotData',
+                      pattern = "pav.csv",
                       full.names = TRUE,
                       recursive = TRUE)
-
 
 # remove unnecessary columns 
 

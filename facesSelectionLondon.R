@@ -1,3 +1,6 @@
+############################## LONDON FACE SELECTION SCRIPT #############################################
+# https://figshare.com/articles/dataset/Face_Research_Lab_London_Set/5047666/3
+
 rm(list=ls())
 setwd("/Users/lukasgunschera/Documents/UvA/Intern/stimuli/londonFaces")
 
@@ -64,7 +67,6 @@ joinDat <- joinDat %>% filter(face_sex.x == face_sex.y)
 joinDat[order(joinDat$ratingDif),][1,c('faceNr.x','faceNr.y','ratingDif')]
 
 ########## MAIN STIMULI SELECTION ###############
-
 attDat <- inner_join(d2,d2, by = c('ind')) %>% filter(faceNr.x > faceNr.y)
 attDat$ratingDif <- abs(attDat$avgRatingCl.x - attDat$avgRatingCl.y)
 attDat$sdAvg <- (attDat$sdRatingCl.x+attDat$sdRatingCl.y)/2

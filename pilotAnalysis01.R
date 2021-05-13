@@ -10,6 +10,7 @@ library(data.table); library(Matrix); library(lme4); library(ggplot2); library(z
 setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Analysis')
 load('pilot01.Rda')
 
+
 longData <- rbindlist(yPilot)
 longData <- longData[-(1:22),]
 

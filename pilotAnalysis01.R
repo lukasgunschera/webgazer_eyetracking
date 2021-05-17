@@ -215,9 +215,12 @@ paste('percent trackloss =',nrow(data[data$trackloss == TRUE,])/nrow(data))
 
 ################################# TRACKLOSS ANALYSIS ###############################################################################
 #participants with trackloss >.5 are excluded entirely
+#'time-window' determines the time plotted in the following graphs (mean rt - 1 sd)
+
+
 time_window <- 0-(abs(mean(data$rev_time[data$cond == 'begin image display'], na.rm = TRUE)) - 
                     sd(data$rev_time[data$cond == 'begin image display'], na.rm = TRUE))
-time_window <- -2.7
+
 paste('the time window starts at:', time_window, 'seconds')
 
 data_window <- subset_by_window(data, window_start_time = time_window, window_end_time = 0, rezero = FALSE, remove = TRUE)

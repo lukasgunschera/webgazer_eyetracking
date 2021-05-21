@@ -227,9 +227,9 @@ data_window <- subset_by_window(data, window_start_time = time_window, window_en
 trackloss <- trackloss_analysis(data = data_window)
 
 data_window_clean <- clean_by_trackloss(data_window,
-                                 participant_prop_thresh = 0.5,
-                                 window_start_time = -Inf,
-                                 window_end_time = 0)
+                                        participant_prop_thresh = 0.5,
+                                        window_start_time = -Inf,
+                                        window_end_time = 0)
 
 droplevels(data_window_clean$ID)
 data_window_clean$target <- as.factor(ifelse(test = grepl('left', data_window_clean$selection_trial),
@@ -245,8 +245,8 @@ mean_trackloss <- mean(trackloss_data_window_participant$TracklossForParticipant
 paste(mean_trackloss, '= average trackloss trials for participants')
 
 dat_summary_left <- describe_data(data_window_clean,
-              describe_column = 'aoi_left',
-              group_columns = c('target','ID'))
+                                  describe_column = 'aoi_left',
+                                  group_columns = c('target','ID'))
 
 plot(dat_summary_left)
 
@@ -266,13 +266,53 @@ sequence_window_clean <- make_time_sequence_data(data_window_clean,
                                                  predictor_columns = 'target',
                                                  aois = c('aoi_left','aoi_right'))
 
-plot(sequence_window_clean, predictor_column = 'target')
+sequence_window_clean_right <- make_time_sequence_data(data_window_clean,
+                                                       time_bin_size = .05,
+                                                       predictor_columns = 'target',
+                                                       aois = c('aoi_right'))
+
+
+sequence_window_clean_left <- make_time_sequence_data(data_window_clean,
+                                                      time_bin_size = .05,
+                                                      predictor_columns = 'target',
+                                                      aois = c('aoi_left'))
+
+a <- plot(sequence_window_clean_right[sequence_window_clean_left$target == 'right',], predictor_column = 'target')+
+  xlab('time until decision')+
+  ylab('proportion viewing time')
+b <- plot(sequence_window_clean_left[sequence_window_clean_left$target == 'left',], predictor_column = 'target')+
+  xlab('time until decision')+
+  ylab('proportion viewing time')
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  plots <- c(list(...), plotlist)
+  numPlots = length(plots)
+  if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  if (numPlots==1) {
+    print(plots[[1]])
+  } else {
+    
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    for (i in 1:numPlots) {
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+multiplot(a,b)
 
 #WINDOW ANALYIS BASIC
 data_window_agg <- make_time_window_data(data_window_clean, 
-                                                    aois = c('aoi_left','aoi_right'),
-                                                    predictor_columns = c('target'),
-                                                    summarize_by = "ID")
+                                         aois = c('aoi_left','aoi_right'),
+                                         predictor_columns = c('target'),
+                                         summarize_by = "ID")
 
 plot(data_window_agg, predictor_columns = 'target', dv = 'ArcSin')
 describe_data(data_window_agg, describe_column = 'ArcSin', group_columns = 'target') #show condition means
@@ -281,8 +321,8 @@ describe_data(data_window_agg, describe_column = 'ArcSin', group_columns = 'targ
 t.test(ArcSin ~ target, data = data_window_agg, paired = TRUE) #simpled paired t-test between total looking times
 
 response_window_agg <- make_time_window_data(data_window_clean, 
-                                         aois = c('aoi_left','aoi_right'),
-                                         predictor_columns = c('target','webcam','glasses'))
+                                             aois = c('aoi_left','aoi_right'),
+                                             predictor_columns = c('target','webcam','glasses'))
 
 response_window_agg$targetC <- ifelse(response_window_agg$target == 'right', .5, -.5)
 response_window_agg$targetC <- as.numeric(scale(response_window_agg$targetC, center = TRUE, scale = FALSE))
@@ -355,10 +395,10 @@ seq_dat <- list()
 
 for(oo in 1:length(uniqueID)){
   currentID <- uniqueID[oo]
-seq_dat[[oo]] <- make_time_sequence_data(data_window_clean[data_window_clean$ID == currentID,],
-                                                 time_bin_size = .25,
-                                                 predictor_columns = 'target',
-                                                 aois = c('aoi_left','aoi_right'))
+  seq_dat[[oo]] <- make_time_sequence_data(data_window_clean[data_window_clean$ID == currentID,],
+                                           time_bin_size = .25,
+                                           predictor_columns = 'target',
+                                           aois = c('aoi_left','aoi_right'))
 }
 
 plot(seq_dat[[17]], predictor_column = 'target')

@@ -10,7 +10,6 @@ library(data.table); library(Matrix); library(lme4); library(ggplot2); library(z
 setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Analysis')
 load('pilot01.Rda')
 
-
 longData <- rbindlist(yPilot)
 longData <- longData[-(1:22),]
 
@@ -261,11 +260,22 @@ paste('sd of trial avg =',sd(summary$NumTrials))
 
 ################################# ANALYSES ############################################################################################
 #window proportion viewing times
+data_window_clean["aoi_overall"] <- NA
+data_window_clean$aoi_overall <- ifelse(((data_window_clean$target == "left" & data_window_clean$aoi_left == TRUE)|(data_window_clean$target == "right" & data_window_clean$aoi_right == TRUE)), TRUE, FALSE)
 sequence_window_clean <- make_time_sequence_data(data_window_clean,
                                                  time_bin_size = .05,
-                                                 predictor_columns = 'target',
-                                                 aois = c('aoi_left','aoi_right'))
+                                                 aois = c('aoi_overall'))
 
+plot(sequence_window_clean)+
+  xlab('time until decision')+
+  ylab('proportion viewing time')
+
+#compute average proportion over 100ms approaching the decision
+mean(sequence_window_clean$Prop[sequence_window_clean$TimeBin == -1|sequence_window_clean$TimeBin == -2], na.rm = TRUE)
+
+
+
+#separate display of the viewing proportions
 sequence_window_clean_right <- make_time_sequence_data(data_window_clean,
                                                        time_bin_size = .05,
                                                        predictor_columns = 'target',
@@ -308,7 +318,10 @@ multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
 }
 multiplot(a,b, cols = 2)
 
-aoiRight %>% sum(.$Top)/sum(.$Bottom)
 
-binom.test(60,100,.5, alternative = 'greater')
-t.test()
+
+
+
+
+
+

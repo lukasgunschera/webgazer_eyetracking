@@ -3,8 +3,8 @@
 rm(list=ls())
 dev.off()
 
-library(dplyr); library(eyetrackingR); library(tidyr); library(labelled); library(ggplot2); library(stringr);
-library(data.table); library(Matrix); library(lme4); library(ggplot2); library(zoo); library(sur)
+myPackages <- c('dplyr','eyetrackingR','labelled','ggplot2','stringr','data.table','Matrix','lme4','zoo','sur')
+lapply(myPackages, require, character.only = TRUE) 
 
 #Loading Data prepared with 'pilotPre' script
 setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Analysis')
@@ -268,12 +268,23 @@ sequence_window_clean <- make_time_sequence_data(data_window_clean,
 
 plot(sequence_window_clean)+
   xlab('time until decision')+
-  ylab('proportion viewing time')
-
+  ylab('proportion viewing time')+
+  theme_bw()+
+  ggtitle('Likelihood of gaze being directed toward selected face')+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face="bold", size = rel(1), hjust = 0.5),
+        axis.line = element_line(color = "black"),
+        axis.title.x = element_text(vjust = 0, size = rel(0.9)),
+        axis.title.y = element_text(vjust = 1.1, size = rel(0.9)),
+        axis.text.x = element_text(margin = margin(10,10,10,10,"pt")),
+        axis.text.y = element_text(margin = margin(10,10,10,0,"pt")),
+        axis.ticks.length = unit(-2, "mm"),
+        text = element_text(size = 14, family = "Times"),
+        panel.border = element_blank())
+  
 #compute average proportion over 100ms approaching the decision
 mean(sequence_window_clean$Prop[sequence_window_clean$TimeBin == -1|sequence_window_clean$TimeBin == -2], na.rm = TRUE)
-
-
 
 #separate display of the viewing proportions
 sequence_window_clean_right <- make_time_sequence_data(data_window_clean,

@@ -7,13 +7,43 @@ myPackages <- c('dplyr','eyetrackingR','labelled','ggplot2','stringr','data.tabl
 lapply(myPackages, require, character.only = TRUE) 
 
 #Loading Data prepared with 'pilotPre' script
-setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Analysis')
-load('pilot01.Rda')
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/data')
+load('faceTrack.Rda')
+
+multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
+  library(grid)
+  plots <- c(list(...), plotlist)
+  numPlots = length(plots)
+  if (is.null(layout)) {
+    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
+                     ncol = cols, nrow = ceiling(numPlots/cols))
+  }
+  if (numPlots==1) {
+    print(plots[[1]])
+  } else {
+    
+    grid.newpage()
+    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
+    
+    for (i in 1:numPlots) {
+      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
+      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
+                                      layout.pos.col = matchidx$col))
+    }
+  }
+}
+
+#remove list entries that are empty; those entires indicate partial completions of participants
+length(yPilot[lapply(yPilot,length)>25])
+length(yPilot[lapply(yPilot,length)<=25])
+
+yPilot <- yPilot[lapply(yPilot,length)>25]
 
 longData <- rbindlist(yPilot)
 longData <- longData[-(1:22),]
 
 longData <- longData[!is.na(longData$gaze_x)]
+longData <- longData[longData$block == 1]
 
 #upcoming selection variable added at each measurement point
 longData$selection_trial <- 0
@@ -28,9 +58,10 @@ var_label(longData$selection_trial) <- "selected face on trial"
 #(1)participant removal with no variation in eye-gaze estimation (1)
 uniqueID_long <- unique(longData$ID)
 
+
 clean_ind <- character()
 for (k in 1:length(uniqueID_long)){
-  cleaning <- subset(longData, longData$ID == uniqueID_long[k])
+  cleaning <- subset(longData, longData$ID == uniqueID_long[k],)
   par_sd <- sd(cleaning$gaze_x, na.rm = TRUE)
   
   if(par_sd == 0){ #par_sd determines minimum variation to be excluded
@@ -54,6 +85,7 @@ for(i in 1:length(uniqueID_long)){
   uniqueResPar <- unique(longData$selection_trial[longData$ID == ind])
   
   if(length(uniqueResPar) < 2){
+    print(uniqueID_long[i])
     noResVar <- as.character(c(noResVar, ind))
   }
 }
@@ -62,13 +94,13 @@ longData <- longData[!longData$ID %in% noResVar, ]
 paste(1-length(unique(longData$ID))/length(uniqueID_long),'= participant loss percentage due to no response variation:')
 
 #trial removal with extreme responses times (>30 seconds & <.5)
-min(longData$trial_time[longData$cond == 'response'])
-median(longData$trial_time[longData$cond == 'response'])
-mean(longData$trial_time[longData$cond == 'response'])
-sd(longData$trial_time[longData$cond == 'response'])
+min(longData$trial_time[longData$cond == 'response'], na.rm = TRUE)
+median(longData$trial_time[longData$cond == 'response'], na.rm = TRUE)
+mean(longData$trial_time[longData$cond == 'response'], na.rm = TRUE)
+sd(longData$trial_time[longData$cond == 'response'], na.rm = TRUE)
 
 uniqueID_long <- unique(longData$ID)
-max(longData$trial_time)
+max(longData$trial_time, na.rm = TRUE)
 
 for(z in 1:length(uniqueID_long)){
   subPar <- subset(longData, longData$ID == uniqueID_long[z])
@@ -90,10 +122,11 @@ paste('check too short:', which(longData$trial_time[longData$cond == 'response']
 #trials with midline deadzones exceeding 1/2 of the screen are excluded
 
 longData$var_midline <- NA
-longData$mid_4 <- longData$res_x/4
+longData$mid_4 <- longData$res_x/5
 
-#variable midline based on preceeding fixations (tailing 90% to exclude early fluctuations)
+#variable midline based on preceeding fixations (tailing 80% to exclude early fluctuations)
 for(ff in 1:length(uniqueID_long)){
+  cat(round(ff/length(uniqueID_long)*100,2),"%    \r")
   for(gg in 1:length(unique(longData$pair))){
     longData$var_midline[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- median(tail(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation']),round(.8*length(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])))
     longData$var_midline_sd[longData$ID == uniqueID_long[ff] & longData$pair == gg] <- sd(tail(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation']),round(.8*length(longData$gaze_x[longData$ID == uniqueID_long[ff] & longData$pair == gg & longData$cond == 'fixation'])))
@@ -102,13 +135,14 @@ for(ff in 1:length(uniqueID_long)){
 
 #trial exclusion large midline area
 longData$mid_offset <- abs(longData$var_midline - longData$mid_x)
-longData$exclude <- longData$var_midline_sd >= longData$mid_4
-excl_midarea <- percent.table(longData$exclude)
+longData$exclude <- ifelse(longData$res_x*.25 <= longData$mid_offset, TRUE, FALSE)
+excl_middistance <- percent.table(longData$exclude)
 longData <- longData[longData$exclude == FALSE]
 
 #trial exclusion large midline deviation
-longData$exclude <- ifelse(longData$res_x*.25 <= longData$mid_offset, TRUE, FALSE)
-excl_middistance <- percent.table(longData$exclude)
+longData$exclude <- longData$var_midline_sd >= 50
+#longData$exclude <- longData$var_midline_sd >= longData$mid_4
+excl_midarea <- percent.table(longData$exclude)
 longData <- longData[longData$exclude == FALSE]
 
 paste('midline area included %:', excl_midarea[1], 'midline variation included%:', excl_middistance[1])
@@ -172,8 +206,8 @@ datAoi$trackloss <- FALSE
 #selection of variables of interest
 names(datAoi)
 datAoi <- subset(datAoi, select = c("ID","qual_id","trials_ran","completion","consent","webcam","webcam_type",
-                                    "glasses","browser","cal_x","cal_y","cal_number","mouse_x","mouse_y",
-                                    "cal_off_x","cal_off_y","framerate","res","res_x","res_y",
+                                    "cal_x","cal_y","cal_number","mouse_x","mouse_y",
+                                    "cal_off_x","cal_off_y","res","res_x","res_y",
                                     "block","pair","aoi","Trial","trial_time",
                                     "cond", "gaze_x","gaze_y","aoi_left","aoi_right",
                                     "selection","selection_trial","trackloss"))
@@ -217,8 +251,8 @@ paste('percent trackloss =',nrow(data[data$trackloss == TRUE,])/nrow(data))
 #'time-window' determines the time plotted in the following graphs (mean rt - 1 sd)
 
 
-time_window <- 0-(abs(mean(data$rev_time[data$cond == 'begin image display'], na.rm = TRUE)) - 
-                    sd(data$rev_time[data$cond == 'begin image display'], na.rm = TRUE))
+#time_window <- 0-(abs(mean(data$rev_time[data$cond == 'begin image display'], na.rm = TRUE)) - sd(data$rev_time[data$cond == 'begin image display'], na.rm = TRUE))
+time_window <- -1.6
 
 paste('the time window starts at:', time_window, 'seconds')
 
@@ -258,6 +292,10 @@ summary <- describe_data(data_window_clean, 'aoi_left', 'ID')
 paste('trial avg per participant =',mean(summary$NumTrials))
 paste('sd of trial avg =',sd(summary$NumTrials))
 
+
+clean_index <- summary$ID[summary$NumTrials<50 | summary$SD == 0]
+clean <- data_window_clean[!data_window_clean$ID %in% clean_index,]
+
 ################################# ANALYSES ############################################################################################
 #window proportion viewing times
 data_window_clean["aoi_overall"] <- NA
@@ -266,9 +304,18 @@ sequence_window_clean <- make_time_sequence_data(data_window_clean,
                                                  time_bin_size = .05,
                                                  aois = c('aoi_overall'))
 
-plot(sequence_window_clean)+
+#same for cleaner dataset
+clean['aoi_overall'] <- NA
+clean$aoi_overall <- ifelse(((clean$target == "left" & clean$aoi_left == TRUE)|(clean$target == "right" & clean$aoi_right == TRUE)), TRUE, FALSE)
+clean_seq <- make_time_sequence_data(clean,
+                                     time_bin_size = .05,
+                                     aois = c('aoi_overall'))
+
+
+a <- plot(sequence_window_clean)+
   xlab('time until decision')+
   ylab('proportion viewing time')+
+  coord_cartesian(ylim = c(0.45,0.7))+
   theme_bw()+
   ggtitle('Likelihood of gaze being directed toward selected face')+
   theme(panel.grid.major = element_blank(),
@@ -282,57 +329,50 @@ plot(sequence_window_clean)+
         axis.ticks.length = unit(-2, "mm"),
         text = element_text(size = 14, family = "Times"),
         panel.border = element_blank())
-  
+
+b <- plot(clean_seq)+
+  xlab('time until decision')+
+  ylab('proportion viewing time')+
+  coord_cartesian(ylim = c(0.45,0.7))+
+  theme_bw()+
+  ggtitle('Likelihood of gaze being directed toward selected face')+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face="bold", size = rel(1), hjust = 0.5),
+        axis.line = element_line(color = "black"),
+        axis.title.x = element_text(vjust = 0, size = rel(0.9)),
+        axis.title.y = element_text(vjust = 1.1, size = rel(0.9)),
+        axis.text.x = element_text(margin = margin(10,10,10,10,"pt")),
+        axis.text.y = element_text(margin = margin(10,10,10,0,"pt")),
+        axis.ticks.length = unit(-2, "mm"),
+        text = element_text(size = 14, family = "Times"),
+        panel.border = element_blank())
+
+multiplot(a,b, cols =2 )
+
 #compute average proportion over 100ms approaching the decision
 mean(sequence_window_clean$Prop[sequence_window_clean$TimeBin == -1|sequence_window_clean$TimeBin == -2], na.rm = TRUE)
 
 #separate display of the viewing proportions
-sequence_window_clean_right <- make_time_sequence_data(data_window_clean,
+sequence_window_clean_right <- make_time_sequence_data(clean,
                                                        time_bin_size = .05,
                                                        predictor_columns = 'target',
                                                        aois = c('aoi_right'))
 
 
-sequence_window_clean_left <- make_time_sequence_data(data_window_clean,
+sequence_window_clean_left <- make_time_sequence_data(clean,
                                                       time_bin_size = .05,
                                                       predictor_columns = 'target',
                                                       aois = c('aoi_left'))
 
 a <- plot(sequence_window_clean_right[sequence_window_clean_left$target == 'right',], predictor_column = 'target')+
   xlab('time until decision')+
-  ylab('proportion viewing time')
+  ylab('proportion viewing time')+
+  coord_cartesian(xlim = c(-1.6,0), ylim = c(.45,.7))
 b <- plot(sequence_window_clean_left[sequence_window_clean_left$target == 'left',], predictor_column = 'target')+
   xlab('time until decision')+
-  ylab('proportion viewing time')
+  ylab('proportion viewing time')+
+  coord_cartesian(xlim = c(-1.6,0), ylim = c(.45,.7))
 
-multiplot <- function(..., plotlist=NULL, file, cols=1, layout=NULL) {
-  library(grid)
-  plots <- c(list(...), plotlist)
-  numPlots = length(plots)
-  if (is.null(layout)) {
-    layout <- matrix(seq(1, cols * ceiling(numPlots/cols)),
-                     ncol = cols, nrow = ceiling(numPlots/cols))
-  }
-  if (numPlots==1) {
-    print(plots[[1]])
-  } else {
-    
-    grid.newpage()
-    pushViewport(viewport(layout = grid.layout(nrow(layout), ncol(layout))))
-    
-    for (i in 1:numPlots) {
-      matchidx <- as.data.frame(which(layout == i, arr.ind = TRUE))
-      print(plots[[i]], vp = viewport(layout.pos.row = matchidx$row,
-                                      layout.pos.col = matchidx$col))
-    }
-  }
-}
 multiplot(a,b, cols = 2)
-
-
-
-
-
-
-
 

@@ -7,3 +7,4 @@ lapply(myPackages, require, character.only = TRUE)
 setwd('/Users/lukasgunschera/Documents/UvA/Intern/data/filedrop')
 data_window_clean <- list.load('data_window_clean.rds')
 eyetrackingRdat <- list.load('eyetrackingRdat.rds')
+

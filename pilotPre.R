@@ -2,32 +2,36 @@
 
 rm(list=ls())
 library(tidyr); library(dplyr); library(magrittr); library(haven); library(here);
-library(stringr); library(purrr); library(labelled); library(data.table)
+library(stringr); library(purrr); library(labelled); library(data.table); library(R.utils)
 
 # LOAD QUALITRICS
 
-setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Data/Qualitrics')
-qualitrics01 <- read.csv('grandData.csv', header = TRUE)
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/data')
+qualitrics01 <- read.csv('eyeTrackingDemo_May 26, 2021_01.09.csv', header = TRUE)
 colnames(qualitrics01)
-qualitrics01 <- qualitrics01[-c(1:2),]
-qualitrics01 <- qualitrics01[ ,-c(1:4,7,9:19)]
 
-#qualitrics <- qualitrics01 %>% filter(Progress >= 80) 
-#qualitrics$Q5_Operating.System  <-  gsub("^Windows NT \\S*", "Windows", qualitrics$Q5_Operating.System)
-#qualitrics$Q5_Operating.System  <-  gsub("^Linux \\S*", "Linux", qualitrics$Q5_Operating.System)
-#qualitrics$Q5_Operating.System  <-  gsub("^Android \\S*", "Android", qualitrics$Q5_Operating.System)
+qualitrics01 %<>% select(c("Progress","Duration..in.seconds.","RecordedDate",
+                           "Q3","Q4","Q19","Q5_Browser","Q5_Version",
+                           "Q5_Operating.System","Q5_Resolution","Q14",
+                           "SC0","PROLIFIC_PID","Q17"))
 
 # LOAD DATAFILES PROLIFIC
 
-setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Data/Pavlovia/pilotData')
-allPav <-  list.files(path = '/Users/lukasgunschera/Documents/UvA/Intern/pilot/Data/Pavlovia/pilotData',
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/data/dat_clean')
+my.folder <- paste0(getwd(), '/', 'dat')
+setwd(my.folder)
+my.delete.empty.csv = lapply(Filter(function(x) countLines(x)<=25, list.files(pattern='pav.csv')), unlink)
+my.model.files <- list.files(my.folder, pattern="^model.*?\\.csv")
+my.model.list  <- lapply(paste0(my.folder, my.model.files), read.csv)
+datadamy.model.data  <- do.call(rbind, my.model.list)
+
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/data/dat_clean')
+allPav <-  list.files(path = '/Users/lukasgunschera/Documents/UvA/Intern/data/dat',
                       pattern = "pav.csv",
                       full.names = TRUE,
                       recursive = TRUE)
 
 # remove unnecessary columns 
-
-
 yPilot <- list()
 yPilot <- lapply(1:length(allPav), function(f){
   
@@ -74,7 +78,6 @@ yPilot <- lapply(1:length(allPav), function(f){
       ID = dat02$participant, qual_id = dat02$PROLIFIC_PID,
       trials_ran = dat02$trials.ran,completion = dat02$Progress, 
       consent = dat02$Q3, webcam = dat02$Q4, webcam_type = dat02$Q19, 
-      glasses = dat02$Q13, browser = dat02$Q5_Browser, framerate = dat02$frameRate,
       res = dat02$Q5_Resolution, res_x = dat02$screen_pixels_x, res_y = dat02$screen_pixels_y,
       mid_x = dat02$screen_pixels_x/2, mid_y = dat02$screen_pixels_y/2,
       mid_x_individual = NA,
@@ -174,14 +177,13 @@ yPilot <- lapply(1:length(allPav), function(f){
     ### LABELLING
     attributes(dat03)
     
-    var_label(dat03$glasses) <- "1 = glasses, 2 = none"
     var_label(dat03$webcam) <- "1 = yes, 2 = no"
     var_label(dat03$webcam_type) <- "1 = built-in, 2 = external, 3 = none"
     var_label(dat03$consent) <- "1 = yes, 0 = no"
     var_label(dat03$res) <- "screen size"
     var_label(dat03$mid_x) <- "screen x-midline"
     var_label(dat03$mid_y) <- "screen y-midline"
-    var_label(dat03$framerate) <- "screen framerate"
+    #var_label(dat03$framerate) <- "screen framerate"
     var_label(dat03$selection) <- "selected face"
     var_label(dat03$pair) <- "number of facepair"
     var_label(dat03$qual_id) <- "prolific id obtained from qualitrics"
@@ -195,6 +197,10 @@ yPilot <- lapply(1:length(allPav), function(f){
 }
 )
 
+for(ii in 1:length(yPilot)){
+  yPilot[[ii]][['ID']] <- ii
+  yPilot[[ii]][['qual_id']] <- ii
+}
 
-setwd('/Users/lukasgunschera/Documents/UvA/Intern/pilot/Analysis')
-save(yPilot, file = "pilot01.Rda")
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/data')
+save(yPilot, file = "faceTrack.Rda")

@@ -1,0 +1,223 @@
+---
+title: "Exploratory Analyses"
+author: "Lukas Gunschera"
+date: "6/1/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, include = FALSE}
+myPackages <- c('dplyr','eyetrackingR','labelled','ggplot2','stringr','data.table','Matrix','lme4','zoo','sur','rlist')
+lapply(myPackages, require, character.only = TRUE) 
+```
+
+```{r}
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/data/filedrop')
+dat_cluster <- list.load('eyeDat_cluster.rds')
+dat_seq_sex <- list.load('eyeDat_seq_sex.rds')
+dat_window <- list.load('eyeDat_window.rds')
+```
+
+## Exploratory Analysis of Sexual Preference and Viewing Distribution in the Face-Attractiveness Task
+
+```{r, warning=FALSE}
+plot(dat_seq_sex, predictor_column = 'sex_match')+
+  xlab('time until decision')+
+  ylab('proportion viewing time')+
+  coord_cartesian(ylim = c(0.45,0.65))+
+  theme_bw()+
+  ggtitle('Likelihood of gaze being directed toward selected face')+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face="bold", size = rel(1), hjust = 0.5),
+        axis.line = element_line(color = "black"),
+        axis.title.x = element_text(vjust = 0, size = rel(0.9)),
+        axis.title.y = element_text(vjust = 1.1, size = rel(0.9)),
+        axis.text.x = element_text(margin = margin(9,9,9,3,"pt")),
+        axis.text.y = element_text(margin = margin(9,9,9,3,"pt")),
+        axis.ticks.length = unit(-2, "mm"),
+        text = element_text(size = 14, family = "Times", margin = margin(3,3,3,3,"pt")),
+        panel.border = element_blank())
+```
+
+The graph displays the viewing distribution over time, approaching the decision of the participant, whether the left or right face is more attractive. As expected, we observe an increase in viewing time proportions leading up to the decision. However, there is no differences in the trend based on the sexual preference of participants. More specifically, individuals do not show gaze differences between trials of face-pairs to which they may be attracted (match of sexual preference and gender of the presented face-pair) and trials of face-pairs to which they are likely not attracted. 
+
+## Exploratory Analysis of Webcam Quality and Viewing Distribution in the Face-Attractiveness Task
+
+```{r, warning=FALSE}
+dat_window_webcam <- dat_window %>% filter(webcam_type == 'Built-in webcam' | webcam_type == 'External webcam' )
+dat_window_webcam$webcam_binary <- as.factor(ifelse(test = grepl('Built-in webcam', dat_window_webcam$webcam_type),
+                                             yes = 'internal',
+                                             no = 'external'))
+
+dat_window_webcam["aoi_overall"] <- NA
+dat_window_webcam$aoi_overall <- ifelse(((dat_window_webcam$target == "left" & dat_window_webcam$aoi_left == TRUE)|(dat_window_webcam$target == "right" & dat_window_webcam$aoi_right == TRUE)), TRUE, FALSE)
+
+dat_seq_webcam <- make_time_sequence_data(dat_window_webcam,
+                                             time_bin_size = .05,
+                                             predictor_columns = 'webcam_binary',
+                                             aois = c('aoi_overall'))
+```
+
+```{r, warning=FALSE}
+plot(dat_seq_webcam, predictor_column = 'webcam_binary')+
+  xlab('time until decision')+
+  ylab('proportion viewing time')+
+  coord_cartesian(ylim = c(0.45,0.65))+
+  theme_bw()+
+  ggtitle('Likelihood of gaze being directed toward selected face')+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face="bold", size = rel(1), hjust = 0.5),
+        axis.line = element_line(color = "black"),
+        axis.title.x = element_text(vjust = 0, size = rel(0.9)),
+        axis.title.y = element_text(vjust = 1.1, size = rel(0.9)),
+        axis.text.x = element_text(margin = margin(9,9,9,3,"pt")),
+        axis.text.y = element_text(margin = margin(9,9,9,3,"pt")),
+        axis.ticks.length = unit(-2, "mm"),
+        text = element_text(size = 14, family = "Times", margin = margin(3,3,3,3,"pt")),
+        panel.border = element_blank())
+```
+
+The plot displays the viewing distribution separate for external and internal webcams. There is reason to believe that the two may show differential accuracy, as the internal webcams are fixed, whereas the external ones may be positioned to the side or subject to movement. The plot shows overall similar trends for the two data subsets but here, the cleaned data are used. There are two options 1) our data cleaning procedure was excellent and erased the differences of external/internal webcam-acquired data, or 2) there are no differences in the accuracy between the two camera types. To address this question, we will have a look at the raw data.
+
+```{r, include = FALSE}
+setwd('/Users/lukasgunschera/Documents/UvA/Intern/data')
+load('faceTrack.Rda')
+length(yPilot[lapply(yPilot,length)>25])
+length(yPilot[lapply(yPilot,length)<=25])
+yPilot <- yPilot[lapply(yPilot,length)>25]
+longData <- rbindlist(yPilot)
+longData <- longData[-(1:22),]
+longData <- longData[!is.na(longData$gaze_x)]
+longData <- longData[longData$block == 1]
+longData$selection_trial <- 0
+selection_rev <- rev(longData$selection)
+rev_selection <- na.locf(selection_rev)
+longData$selection_trial <- rev(rev_selection)
+dat_ext <- longData %>% filter(webcam_type == 'External webcam')
+dat_int <- longData %>% filter(webcam_type == 'Built-in webcam')
+dat_ext$selection_trial <- 0
+selection_rev <- rev(dat_ext$selection)
+rev_selection <- na.locf(selection_rev)
+dat_ext$selection_trial <- rev(rev_selection)
+dat_int$selection_trial <- 0
+selection_rev <- rev(dat_int$selection)
+rev_selection <- na.locf(selection_rev)
+dat_int$selection_trial <- rev(rev_selection)
+```
+
+```{r, include = FALSE}
+uID_ext <- unique(dat_ext$ID)
+uID_int <- unique(dat_int$ID)
+
+clean_ind <- character()
+for (k in 1:length(uID_ext)){
+  cat(round(k/length(uID_ext)*100,2),"%    \r")
+  cleaning <- subset(dat_ext, dat_ext$ID == uID_ext[k],)
+  par_sd <- sd(cleaning$gaze_x, na.rm = TRUE)
+  
+  if(par_sd == 0){ #par_sd determines minimum variation to be excluded
+    print(uID_ext[k])
+    clean_ind <- c(clean_ind, as.character(uID_ext[k]))
+  }
+}
+
+dat_ext <- dat_ext[!dat_ext$ID %in% clean_ind,]
+
+clean_ind <- character()
+for (k in 1:length(uID_int)){
+  cat(round(k/length(uID_int)*100,2),"%    \r")
+  cleaning <- subset(dat_int, dat_int$ID == uID_int[k],)
+  par_sd <- sd(cleaning$gaze_x, na.rm = TRUE)
+  
+  if(par_sd == 0){ #par_sd determines minimum variation to be excluded
+    print(uID_int[k])
+    clean_ind <- c(clean_ind, as.character(uID_int[k]))
+  }
+}
+
+dat_int <- dat_int[!dat_int$ID %in% clean_ind,]
+```
+
+```{r}
+paste((1-length(unique(dat_int$ID))/length(uID_int))*100, '% = participant loss percentage no gaze variation with internal webcam')
+paste((1-length(unique(dat_ext$ID))/length(uID_ext))*100, '% = participant loss percentage no gaze variation with external webcam')
+```
+
+```{r, include = FALSE}
+uID_ext <- unique(dat_ext$ID)
+noResVar <- character()
+
+for(i in 1:length(uID_ext)){
+  cat(round(i/length(uID_ext)*100,2),"%    \r")
+  ind <- uID_ext[i]
+  ind <- as.character(ind)
+  uniqueResPar <- unique(dat_ext$selection_trial[dat_ext$ID == ind])
+  
+  if(length(uniqueResPar) < 2){
+    print(uID_ext[i])
+    noResVar <- as.character(c(noResVar, ind))
+  }
+}
+
+dat_ext <- dat_ext[!dat_ext$ID %in% noResVar, ]
+
+uID_int <- unique(dat_int$ID)
+noResVar <- character()
+
+for(i in 1:length(uID_int)){
+  cat(round(i/length(uID_int)*100,2),"%    \r")
+  ind <- uID_int[i]
+  ind <- as.character(ind)
+  uniqueResPar <- unique(dat_int$selection_trial[dat_int$ID == ind])
+  
+  if(length(uniqueResPar) < 2){
+    print(uID_int[i])
+    noResVar <- as.character(c(noResVar, ind))
+  }
+}
+
+dat_int <- dat_int[!dat_int$ID %in% noResVar, ]
+```
+
+```{r}
+paste((1-length(unique(dat_int$ID))/length(uID_int))*100,'% = participant loss percentage due to no response variation with internal webcam')
+paste((1-length(unique(dat_ext$ID))/length(uID_ext))*100,'% = participant loss percentage due to no response variation with external webcam')
+```
+
+Overall, there are little differences in the loss percentage of participants in the internal and external webcam-based sample. This may change with the specifications for exclusion but here, it seems participants in the external and internal webcam group show no variation in responses and no variation in eye-gaze estimation roughly equally.
+
+```{r, include = FALSE}
+uID_int <- unique(dat_int$ID)
+max(dat_int$trial_time, na.rm = TRUE)
+
+for(z in 1:length(uID_int)){
+  subPar <- subset(dat_int, dat_int$ID == uID_int[z])
+  a <- unique(subPar$pair[which(subPar$trial_time > 30)])
+  dat_int <- dat_int[!(dat_int$ID == uID_int[z] & dat_int$pair %in% a),]
+}
+
+for(d in 1:length(uID_int)){
+  subPar <- subset(dat_int, dat_int$ID == uID_int[d])
+  b <- unique(subPar$pair[which(subPar$trial_time[subPar$cond == 'response'] < .5)])
+  dat_int <- dat_int[!(dat_int$ID == uID_int[z] & dat_int$pair %in% b),]
+}
+```
+
+```{r}
+a <- aggregate(gaze_x ~ ID, dat_int, mean)
+b <- aggregate(gaze_x ~ ID, dat_int, sd)
+c <- aggregate(gaze_x ~ ID, dat_ext, mean)
+d <- aggregate(gaze_x ~ ID, dat_ext, sd)
+
+paste('mean internal:', mean(a[,2]), 'with sdev internal:', mean(b[,2]))
+paste('mean external:', mean(c[,2]), 'with sdev external:', mean(d[,2]))
+```
+There seem to be some differences in the accuracy of fixation estimates in the two samples, with larger standard deviation of the gaze-estimates in the external webcam subsample.
+
+
+

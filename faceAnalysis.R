@@ -400,8 +400,7 @@ b <- plot(sequence_window_clean_left[sequence_window_clean_left$target == 'left'
 multiplot(a,b, cols = 2)
 
 1365*0.635861
-
-binom.test(867, 1365, 0.5)
+binom.test(867,1365,0.5,alternative = 'greater')
 
 
 #offload datafiles for further exploratory analysis in seperate R script

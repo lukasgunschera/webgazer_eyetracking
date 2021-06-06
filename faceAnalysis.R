@@ -282,7 +282,7 @@ dat_win_cl$target <- as.factor(ifelse(test = grepl('left', dat_win_cl$selection_
 
 ### Data Inspection #########################################################################
 
-track_dat_win_cl <- trackloss_analysis(data = data_window_clean)
+track_dat_win_cl <- trackloss_analysis(data = dat_win_cl)
 track_dat_win_cl_participant <- unique(trackloss_data_window_clean[, c('ID','TracklossForParticipant')])
 
 mean_trackloss <- mean(track_dat_win_cl_participant$TracklossForParticipant)
@@ -370,3 +370,174 @@ list.save(data, 'eyetrackingRdat.rds')
 
 length(unique(seq_win_cl_left$ID))
 length(unique(seq_win_cl_right$ID))
+
+###############################################################################################################################################################################
+######################## ATTENTION CHECK ANALYSIS #############################################################################################################################
+
+strictInclAtt <- c(1L, 3L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 13L, 14L, 15L, 16L, 18L, 19L, 20L, 21L, 22L, 23L, 24L, 25L, 26L, 27L, 28L, 29L, 30L, 31L, 32L, 34L, 36L, 37L, 40L, 41L, 42L, 45L, 46L, 47L, 51L, 52L, 53L, 55L, 57L, 58L, 59L, 60L, 62L, 65L, 66L, 69L, 70L, 71L, 72L, 74L, 76L, 77L, 78L, 79L, 80L, 81L, 82L, 83L, 84L, 85L, 86L, 87L, 88L, 89L, 90L, 92L, 94L, 95L, 96L, 99L, 100L, 101L, 102L, 103L, 104L, 106L, 107L, 110L, 113L, 114L, 115L, 116L, 117L, 118L, 119L, 120L, 121L, 123L, 124L, 125L, 127L, 128L, 129L, 130L, 131L, 132L, 133L, 134L, 135L, 136L, 137L, 138L, 139L, 140L, 141L, 142L, 143L, 144L, 145L, 146L, 147L, 148L, 149L, 150L, 151L, 152L, 153L, 154L, 155L, 156L, 157L, 158L, 160L, 161L, 162L)
+lenientInclAtt <- c(1L, 2L, 3L, 4L, 5L, 6L, 7L, 8L, 9L, 10L, 11L, 12L, 13L, 14L, 15L, 16L, 17L, 18L, 19L, 20L, 21L, 22L, 23L, 24L, 25L, 26L, 27L, 28L, 29L, 30L, 31L, 32L, 34L, 36L, 37L, 38L, 39L, 40L, 41L, 42L, 44L, 45L, 46L, 47L, 51L, 52L, 53L, 54L, 55L, 56L, 57L, 58L, 59L, 60L, 61L, 62L, 63L, 64L, 65L, 66L, 68L, 69L, 70L, 71L, 72L, 73L, 74L, 76L, 77L, 78L, 79L, 80L, 81L, 82L, 83L, 84L, 85L, 86L, 87L, 88L, 89L, 90L, 92L, 94L, 95L, 96L, 99L, 100L, 101L, 102L, 103L, 104L, 105L, 106L, 107L, 108L, 110L, 111L, 112L, 113L, 114L, 115L, 116L, 117L, 118L, 119L, 120L, 121L, 122L, 123L, 124L, 125L, 126L, 127L, 128L, 129L, 130L, 131L, 132L, 133L, 134L, 135L, 136L, 137L, 138L, 139L, 140L, 141L, 142L, 143L, 144L, 145L, 146L, 147L, 148L, 149L, 150L, 151L, 152L, 153L, 154L, 155L, 156L, 157L, 158L, 160L, 161L, 162L)
+
+paste('the lenient attention check includes', length(lenientInclAtt)-length(strictInclAtt), 'more participants than the strict ones')
+
+# variables: strictInclAtt & lenientInclAtt come from 'attentionCheck' script
+data_attention_strict <- subset(data, ID %in% strictInclAtt)
+data_attention_lenient <- subset(data, ID %in% lenientInclAtt)
+
+########################### STRICT #############################################################################################
+
+time_window <- -1.6
+paste('the time window starts at:', time_window, 'seconds')
+
+dat_win1 <- subset_by_window(data_attention_strict, window_start_time = time_window, window_end_time = 0, rezero = FALSE, remove = TRUE)
+trackloss <- trackloss_analysis(data = dat_win1)
+
+dat_win1_cl <- clean_by_trackloss(dat_win1,
+                                  participant_prop_thresh = 0.5,
+                                  window_start_time = -Inf,
+                                  window_end_time = 0)
+
+droplevels(dat_win1_cl$ID)
+dat_win1_cl$target <- as.factor(ifelse(test = grepl('left', dat_win1_cl$selection_trial),
+                                       yes = 'left',
+                                       no = 'right'))
+
+### Data Inspection 
+
+track_dat_win1_cl <- trackloss_analysis(data = dat_win1_cl)
+track_dat_win1_cl_participant <- unique(track_dat_win1_cl[, c('ID','TracklossForParticipant')])
+
+mean_trackloss1 <- mean(track_dat_win1_cl_participant$TracklossForParticipant)
+paste(mean_trackloss1, '= average trackloss trials for participants')
+
+dat_sum_left1 <- describe_data(dat_win1_cl,
+                               describe_column = 'aoi_left',
+                               group_columns = c('target','ID'))
+
+plot(dat_sum_left1)
+
+#summarize samples contributed per trial
+paste('sample % contributed for trial =',mean(1-track_dat_win1_cl_participant$TracklossForParticipant))
+paste('sample % deviation =',sd(track_dat_win1_cl_participant$TracklossForParticipant))
+
+#summarize number of trials contributed by each participant
+summary1 <- describe_data(dat_win1_cl, 'aoi_left', 'ID')
+paste('trial avg per participant =',mean(summary1$NumTrials))
+paste('sd of trial avg =',sd(summary1$NumTrials))
+
+clean_index1 <- summary$ID[summary1$NumTrials<50 | summary$SD == 0]
+clean1 <- dat_win1_cl[!dat_win1_cl$ID %in% clean_index1,]
+
+### Analysis 
+
+dat_win1_cl["aoi_overall"] <- NA
+dat_win1_cl$aoi_overall <- ifelse(((dat_win1_cl$target == "left" & dat_win1_cl$aoi_left == TRUE)|(dat_win1_cl$target == "right" & dat_win1_cl$aoi_right == TRUE)), TRUE, FALSE)
+seq_win1_cl <- make_time_sequence_data(dat_win1_cl,
+                                       time_bin_size = .05,
+                                       aois = c('aoi_overall'))
+
+plot(seq_win1_cl)+
+  xlab('time until decision')+
+  ylab('proportion viewing time')+
+  coord_cartesian(ylim = c(0.45,0.7))+
+  theme_bw()+
+  ggtitle('Likelihood of gaze being directed toward selected face')+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face="bold", size = rel(1), hjust = 0.5),
+        axis.line = element_line(color = "black"),
+        axis.title.x = element_text(vjust = 0, size = rel(0.9)),
+        axis.title.y = element_text(vjust = 1.1, size = rel(0.9)),
+        axis.text.x = element_text(margin = margin(10,10,10,10,"pt")),
+        axis.text.y = element_text(margin = margin(10,10,10,0,"pt")),
+        axis.ticks.length = unit(-2, "mm"),
+        text = element_text(size = 14, family = "Times"),
+        panel.border = element_blank())
+
+
+p1 <- mean(seq_win1_cl$Prop[seq_win1_cl$TimeBin == -1|seq_win1_cl$TimeBin == -2], na.rm = TRUE)
+n1 <- round(length(seq_win1_cl$Prop[seq_win1_cl$TimeBin == -1|seq_win1_cl$TimeBin == -2 & !is.na(seq_win1_cl$Prop)]))
+np1 <- round(n1*p1)
+
+binom.test(np1,n1,0.5,alternative = 'greater')
+
+########################### LENIENT #############################################################################################
+
+time_window <- -1.6
+paste('the time window starts at:', time_window, 'seconds')
+
+dat_win2 <- subset_by_window(data_attention_strict, window_start_time = time_window, window_end_time = 0, rezero = FALSE, remove = TRUE)
+trackloss <- trackloss_analysis(data = dat_win2)
+
+dat_win2_cl <- clean_by_trackloss(dat_win2,
+                                  participant_prop_thresh = 0.5,
+                                  window_start_time = -Inf,
+                                  window_end_time = 0)
+
+droplevels(dat_win2_cl$ID)
+dat_win2_cl$target <- as.factor(ifelse(test = grepl('left', dat_win2_cl$selection_trial),
+                                       yes = 'left',
+                                       no = 'right'))
+
+# Data Inspection #########################################################################
+
+track_dat_win2_cl <- trackloss_analysis(data = dat_win2_cl)
+track_dat_win2_cl_participant <- unique(track_dat_win2_cl[, c('ID','TracklossForParticipant')])
+
+mean_trackloss2 <- mean(track_dat_win2_cl_participant$TracklossForParticipant)
+paste(mean_trackloss2, '= average trackloss trials for participants')
+
+dat_sum_left2 <- describe_data(dat_win2_cl,
+                               describe_column = 'aoi_left',
+                               group_columns = c('target','ID'))
+
+plot(dat_sum_left2)
+
+#summarize samples contributed per trial
+paste('sample % contributed for trial =',mean(1-track_dat_win2_cl_participant$TracklossForParticipant))
+paste('sample % deviation =',sd(track_dat_win2_cl_participant$TracklossForParticipant))
+
+#summarize number of trials contributed by each participant
+summary2 <- describe_data(dat_win2_cl, 'aoi_left', 'ID')
+paste('trial avg per participant =',mean(summary2$NumTrials))
+paste('sd of trial avg =',sd(summary2$NumTrials))
+
+clean_index2 <- summary$ID[summary2$NumTrials<50 | summary$SD == 0]
+clean2 <- dat_win2_cl[!dat_win2_cl$ID %in% clean_index2,]
+
+### Analysis #########################################################################
+
+dat_win2_cl["aoi_overall"] <- NA
+dat_win2_cl$aoi_overall <- ifelse(((dat_win2_cl$target == "left" & dat_win2_cl$aoi_left == TRUE)|(dat_win2_cl$target == "right" & dat_win2_cl$aoi_right == TRUE)), TRUE, FALSE)
+seq_win2_cl <- make_time_sequence_data(dat_win2_cl,
+                                       time_bin_size = .05,
+                                       aois = c('aoi_overall'))
+
+plot(seq_win2_cl)+
+  xlab('time until decision')+
+  ylab('proportion viewing time')+
+  coord_cartesian(ylim = c(0.45,0.7))+
+  theme_bw()+
+  ggtitle('Likelihood of gaze being directed toward selected face')+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face="bold", size = rel(1), hjust = 0.5),
+        axis.line = element_line(color = "black"),
+        axis.title.x = element_text(vjust = 0, size = rel(0.9)),
+        axis.title.y = element_text(vjust = 1.1, size = rel(0.9)),
+        axis.text.x = element_text(margin = margin(10,10,10,10,"pt")),
+        axis.text.y = element_text(margin = margin(10,10,10,0,"pt")),
+        axis.ticks.length = unit(-2, "mm"),
+        text = element_text(size = 14, family = "Times"),
+        panel.border = element_blank())
+
+
+p2 <- mean(seq_win2_cl$Prop[seq_win2_cl$TimeBin == -1|seq_win2_cl$TimeBin == -2], na.rm = TRUE)
+n2 <- round(length(seq_win2_cl$Prop[seq_win2_cl$TimeBin == -1|seq_win2_cl$TimeBin == -2 & !is.na(seq_win2_cl$Prop)]))
+np2 <- round(n2*p2)
+
+binom.test(np2,n2,0.5,alternative = 'greater')
+
+
+
+
+

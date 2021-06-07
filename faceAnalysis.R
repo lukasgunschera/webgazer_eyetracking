@@ -465,7 +465,7 @@ binom.test(np1,n1,0.5,alternative = 'greater')
 time_window <- -1.6
 paste('the time window starts at:', time_window, 'seconds')
 
-dat_win2 <- subset_by_window(data_attention_strict, window_start_time = time_window, window_end_time = 0, rezero = FALSE, remove = TRUE)
+dat_win2 <- subset_by_window(data_attention_lenient, window_start_time = time_window, window_end_time = 0, rezero = FALSE, remove = TRUE)
 trackloss <- trackloss_analysis(data = dat_win2)
 
 dat_win2_cl <- clean_by_trackloss(dat_win2,

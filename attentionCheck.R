@@ -69,6 +69,7 @@ parAttentive3 <- participants[c]
 # create variable indicating which participants to select
 strictInclAtt <- intersect(intersect(parAttentive1,parAttentive2),parAttentive3)
 lenientInclAtt <- parAttentive3[parAttentive3 %in% parAttentive1 | parAttentive2]
+length(participants)
 
 strictInclAtt
 
